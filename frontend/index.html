@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Project & Team Matching System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-8">
+  <div class="max-w-5xl mx-auto space-y-8">
+    <header class="border-b border-slate-700 pb-4">
+      <h1 class="text-3xl font-bold text-sky-400">AI Student-Faculty Guidance & Team Formation</h1>
+      <p class="text-slate-400 text-sm mt-1">Multi-factor compatibility and complementary skill matching engine</p>
+    </header>
+
+    <!-- Project Recommendations for Students -->
+    <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
+      <h2 class="text-xl font-semibold text-white">Find Matched Projects for a Student</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input id="studentName" type="text" placeholder="Student Name" value="Student A" class="bg-slate-900 border border-slate-700 rounded p-2 text-sm" />
+        <input id="studentSkills" type="text" placeholder="Skills (comma-separated)" value="React, CSS, JavaScript" class="bg-slate-900 border border-slate-700 rounded p-2 text-sm" />
+        <input id="studentInterests" type="text" placeholder="Interests" value="Frontend Development, UI/UX" class="bg-slate-900 border border-slate-700 rounded p-2 text-sm" />
+        <input id="studentGoals" type="text" placeholder="Learning Goals" value="Node.js" class="bg-slate-900 border border-slate-700 rounded p-2 text-sm" />
+      </div>
+      <button onclick="getRecommendations()" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded text-sm font-medium transition">
+        Calculate Recommendations
+      </button>
+
+      <div id="recommendationResults" class="mt-4 space-y-2 hidden">
+        <h3 class="text-sm font-semibold text-slate-300">Compatibility Results:</h3>
+        <div id="recList" class="space-y-2"></div>
+      </div>
+    </section>
+
+    <!-- Complementary Team Formation -->
+    <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
+      <h2 class="text-xl font-semibold text-white">Form Balanced Team for Project</h2>
+      <div class="flex gap-4 items-center">
+        <input id="projectIdInput" type="text" value="proj-101" placeholder="Project ID" class="bg-slate-900 border border-slate-700 rounded p-2 text-sm w-48" />
+        <button onclick="formTeam()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded text-sm font-medium transition">
+          Form Complementary Team
+        </button>
+      </div>
+
+      <div id="teamResults" class="mt-4 hidden space-y-4">
+        <div id="teamWarning" class="p-3 rounded text-sm font-medium"></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="teamMembersList"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const API_BASE = "https://studious-capybara-69wrg7447jxrh59jr-8000.app.github.dev";
+
+    async function getRecommendations() {
+      const payload = {
+        id: "temp-s",
+        name: document.getElementById("studentName").value,
+        skills: document.getElementById("studentSkills").value.split(",").map(s => s.trim()),
+        interests: document.getElementById("studentInterests").value.split(",").map(s => s.trim()),
+        learning_goals: document.getElementById("studentGoals").value.split(",").map(s => s.trim()),
+        career_goal: "Developer",
+        bio: "Looking for compatible project."
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/api/recommend/projects`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        
+        const recList = document.getElementById("recList");
+        recList.innerHTML = "";
+        data.recommendations.forEach(r => {
+          const item = document.createElement("div");
+          item.className = "bg-slate-900 border border-slate-700 p-3 rounded flex justify-between items-center";
+          item.innerHTML = `
+            <div>
+              <p class="font-medium text-white">${r.title} <span class="text-xs text-slate-400">(${r.domain})</span></p>
+              <p class="text-xs text-slate-400 mt-1">Requires: ${r.required_skills.join(", ")}</p>
+            </div>
+            <span class="text-sm font-semibold text-sky-400 font-mono">${(r.compatibility_score * 100).toFixed(1)}% Match</span>
+          `;
+          recList.appendChild(item);
+        });
+        document.getElementById("recommendationResults").classList.remove("hidden");
+      } catch (err) {
+        alert("Failed to connect to backend API: " + err);
+      }
+    }
+
+    async function formTeam() {
+      const projId = document.getElementById("projectIdInput").value;
+      try {
+        const res = await fetch(`${API_BASE}/api/teams/form?project_id=${projId}&team_size=4`, {
+          method: "POST"
+        });
+        const data = await res.json();
+        
+        const warningDiv = document.getElementById("teamWarning");
+        if (data.skill_gaps.length > 0) {
+          warningDiv.className = "p-3 rounded text-sm font-medium bg-amber-900/40 text-amber-300 border border-amber-800";
+          warningDiv.textContent = data.gap_warning;
+        } else {
+          warningDiv.className = "p-3 rounded text-sm font-medium bg-emerald-900/40 text-emerald-300 border border-emerald-800";
+          warningDiv.textContent = "All project skill requirements satisfied!";
+        }
+
+        const membersList = document.getElementById("teamMembersList");
+        membersList.innerHTML = "";
+        data.team.forEach(m => {
+          const card = document.createElement("div");
+          card.className = "bg-slate-900 border border-slate-700 p-3 rounded";
+          card.innerHTML = `
+            <p class="font-medium text-white">${m.name}</p>
+            <p class="text-xs text-slate-400 mt-1">Skills: ${m.skills.join(", ")}</p>
+          `;
+          membersList.appendChild(card);
+        });
+
+        document.getElementById("teamResults").classList.remove("hidden");
+      } catch (err) {
+        alert("Failed to connect to backend API: " + err);
+      }
+    }
+  </script>
+</body>
+</html>
